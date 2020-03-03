@@ -13,14 +13,14 @@ FORWARD_LEFT_PIN = 26   # IN1 - Forward Drive
 REVERSE_LEFT_PIN = 19   # IN2 - Reverse Drive
 # Motor B, Right Side GPIO CONSTANTS
 PWM_DRIVE_RIGHT = 5     # ENB - H-Bridge enable pin
-FORWARD_RIGHT_PIN = 13  # IN1 - Forward Drive
-REVERSE_RIGHT_PIN = 6   # IN2 - Reverse Drive
+FORWARD_RIGHT_PIN = 6  # IN1 - Forward Drive
+REVERSE_RIGHT_PIN = 13   # IN2 - Reverse Drive
  
  #ustawienia pwm na odpowiednich pinach gpio
 # Initialise objects for H-Bridge GPIO PWM pins
 # Set initial duty cycle to 0 and frequency to 1000
-driveLeft = PWMOutputDevice(PWM_DRIVE_LEFT, True, 0, 1500)
-driveRight = PWMOutputDevice(PWM_DRIVE_RIGHT, True, 0, 1500)
+driveLeft = PWMOutputDevice(PWM_DRIVE_LEFT, True, 0, 1000)
+driveRight = PWMOutputDevice(PWM_DRIVE_RIGHT, True, 0, 1000)
  
 # Tutaj sterowanie kierunkiem dla silnika lewego i prawego
 forwardLeft = PWMOutputDevice(FORWARD_LEFT_PIN)
@@ -49,11 +49,8 @@ def getOutputsNames(net):
 def draw_pred(img, class_id, confidence, x, y, x_plus_w, y_plus_h):
 
     label = str(classes[class_id])
-
     color = COLORS[class_id]
-
     cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)
-
     cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
     #tutaj zaczynają się definicję np skrętu w lewo,
     #jedź prosto i takie tam różne w każdym ustawia się wyjścia pinów 1/0 dla kierunki
@@ -99,25 +96,15 @@ def forwardTurnRight(wypelnienie):
     driveLeft.value = wypelnienie
     driveRight.value = wypelnienie
 
-def centruj(local_obj_x):     #funkcja centrująca obiekt na ekranie kamery
-    
-    if local_obj_x < 145 and local_obj_x != 0:
-        
-        procent= local_obj_x/160
-        procent=1-procent
-        forwardTurnRight(0.0002)
-
-        
-    if local_obj_x > 175 and local_obj_x != 0:
-        
-        local_obj_x=local_obj_x-160
-        procent=local_obj_x/160   
-        forwardTurnLeft(0.0002)
-
-    if local_obj_x > 130 and local_obj_x <190 or local_obj_x == 0:
-        allStop()
-        #zaczęte eksperymenty typu jak piłka będzie po środku ekranu tojedź prosto
-        #tylko zaczęte nic więcej nawet nie testowałem
+def centruj(local_obj_x, pwm_par = 100):     #funkcja centrująca obiekt na ekranie kamery
+    if local_obj_x != 0: 
+        pwm_signal = ((local_obj_x -160)/160) / pwm_par
+        if pwm_signal > 0 :
+            forwardTurnLeft(pwm_signal)
+        else :
+            forwardTurnRight(-pwm_signal)
+        return pwm_signal
+    else: allStop()
 
 def zbieraj(local_obj_x):
     centruj(local_obj_x) # po prostu wycentruj na ekranie piłkę i jedź prosto
@@ -201,7 +188,7 @@ while cv2.waitKey(1) < 0:
     
     #dodatkowo zmiennej nadaję też wartość w pikselach gdzie piłka na obrazie jest
     
-    centruj(local_obj_x)
+    pwm_result =centruj(local_obj_x, 25)
     #tu jest część do samego rysowania pudełek na obiektach
     
     for i in indices:
@@ -219,7 +206,7 @@ while cv2.waitKey(1) < 0:
     label = 'Inference time: %.2f ms' % (t * 1000.0 / cv2.getTickFrequency())
     cv2.putText(image, label, (0, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0))
 
-    cv2.putText(image, str(local_obj_x), (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0))
+    cv2.putText(image, str(pwm_result), (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0))
     
     cv2.imshow(window_title, image)
     
