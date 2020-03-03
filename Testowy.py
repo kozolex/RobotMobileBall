@@ -30,11 +30,11 @@ reverseRight = PWMOutputDevice(REVERSE_RIGHT_PIN)
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-c', '--config', 
-                help = 'path to yolo config file', default='/home/pi/Desktop/PLIKI/tinyv3.cfg')
+                help = 'path to yolo config file', default='./net/tinyv3.cfg')
 ap.add_argument('-w', '--weights', 
-                help = 'path to yolo pre-trained weights', default='/home/pi/Desktop/PLIKI/BEST.weights')
+                help = 'path to yolo pre-trained weights', default='./net/BEST.weights')
 ap.add_argument('-cl', '--classes', 
-                help = 'path to text file containing class names',default='/home/pi/Desktop/PLIKI/ping-pong.names')
+                help = 'path to text file containing class names',default='./net/ping-pong.names')
 args = ap.parse_args()
 
     
@@ -84,73 +84,56 @@ def reverseDrive():
     driveRight.value = 0.07
     
 def forwardTurnLeft(wypelnienie):
-    nowe=wypelnienie/100
     forwardLeft.value = True
     reverseLeft.value = False
     forwardRight.value = False
     reverseRight.value = True
-    driveLeft.value = nowe
-    driveRight.value = nowe
+    driveLeft.value = wypelnienie
+    driveRight.value = wypelnienie
  
 def forwardTurnRight(wypelnienie):
-    nowe=wypelnienie/100
     forwardLeft.value = False
     reverseLeft.value = True
     forwardRight.value = True
     reverseRight.value = False
-    driveLeft.value = nowe
-    driveRight.value = nowe
+    driveLeft.value = wypelnienie
+    driveRight.value = wypelnienie
 
-def centruj(zmienna):     #funkcja centrująca obiekt na ekranie kamery
+def centruj(local_obj_x):     #funkcja centrująca obiekt na ekranie kamery
     
-    if zmienna < 145 and zmienna != 0:
+    if local_obj_x < 145 and local_obj_x != 0:
         
-        procent= zmienna/160
+        procent= local_obj_x/160
         procent=1-procent
-        czas_czekania=0.5*procent
-         
-        forwardTurnRight(0.02)
-        t5.start()
+        forwardTurnRight(0.0002)
+
         
-    if zmienna > 175 and zmienna != 0:
+    if local_obj_x > 175 and local_obj_x != 0:
         
-        zmienna=zmienna-160
-        procent=zmienna/160
-        czas_czekania=0.5*procent
-         
-        forwardTurnLeft(0.02)
-        t4.start()
-        
-    if zmienna > 130 and zmienna <190 or zmienna == 0:
+        local_obj_x=local_obj_x-160
+        procent=local_obj_x/160   
+        forwardTurnLeft(0.0002)
+
+    if local_obj_x > 130 and local_obj_x <190 or local_obj_x == 0:
         allStop()
         #zaczęte eksperymenty typu jak piłka będzie po środku ekranu tojedź prosto
         #tylko zaczęte nic więcej nawet nie testowałem
-def zbieraj(zmienna):
-    centruj(zmienna) # po prostu wycentruj na ekranie piłkę i jedź prosto
+
+def zbieraj(local_obj_x):
+    centruj(local_obj_x) # po prostu wycentruj na ekranie piłkę i jedź prosto
     forwardDrive(0.03)                       # taki sam schemat jazdy jak przy centrowaniu obiektu
     t1.start()
     
-def szukaj(zmienna):
+def szukaj(local_obj_x):
                                # funkcja szukania obiektu na ekranie
-        forwardTurnRight(0.02)   #i tutaj się obraca sobie robot powoli i szuka piłeczki
-        t2.run()
-        t3.run()                         #obrotu robota w prawo
-    #if zmienna != 0:         #a jeżeli coś się wydarzy czyli jakaś detekcja obiektu to
-      #  zbieraj(zmienna) 
+        forwardTurnRight(0.02)   #i tutaj się obraca sobie robot powoli i szuka piłeczki                       #obrotu robota w prawo
+    #if local_obj_x != 0:         #a jeżeli coś się wydarzy czyli jakaś detekcja obiektu to
+      #  zbieraj(local_obj_x) 
     # tu jest próba wykorzystania timerów do oganięcia ile poszczególna funkcja ma trwać
     #typu skręcaj w lewo przez 5s również  nie dokończone bo nie ogarnąłem
-    
-    
-czas_czekania = 0   
-t1 = threading.Timer(1.0, allStop)        
-t2 = threading.Timer(3.0 , forwardTurnLeft, [2])       #3 sekundy działania z takim wypełnieniem to 90st
-t3 = threading.Timer(4.5 , allStop)
-t4 = threading.Timer(czas_czekania, allStop)        
-t5 = threading.Timer(czas_czekania, allStop)         
-      #a tu się zaczyna cała detekcja obiektu aż praktycznie do końca kodu  
+
 window_title= "Detector"   
 cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
-
 
 # Load names classes
 classes = None
@@ -171,7 +154,7 @@ cap.set(4,240)
 cap.set(5, 90)
 cap.set(12,50)
 
-zmienna=0
+local_obj_x=0
 
 while cv2.waitKey(1) < 0:
     
@@ -192,7 +175,7 @@ while cv2.waitKey(1) < 0:
     nms_threshold = 0.4
     
     for out in outs:
-        zmienna=0 # tą zmienną wykorzystuję do wypluwania gdzie czy jest obiekt na ekranie czy go nie ma
+        local_obj_x=0 # tą zmienną wykorzystuję do wypluwania gdzie czy jest obiekt na ekranie czy go nie ma
         #print(out.shape)
         for detection in out:
             
@@ -204,7 +187,7 @@ while cv2.waitKey(1) < 0:
             if confidence > 0.5:            
                 center_x = int(detection[0] * Width)
                 center_y = int(detection[1] * Height)
-                zmienna=center_x
+                local_obj_x=center_x
                 
                 w = int(detection[2] * Width)
                 h = int(detection[3] * Height)
@@ -218,7 +201,7 @@ while cv2.waitKey(1) < 0:
     
     #dodatkowo zmiennej nadaję też wartość w pikselach gdzie piłka na obrazie jest
     
-    
+    centruj(local_obj_x)
     #tu jest część do samego rysowania pudełek na obiektach
     
     for i in indices:
@@ -235,5 +218,8 @@ while cv2.waitKey(1) < 0:
     t, _ = net.getPerfProfile()
     label = 'Inference time: %.2f ms' % (t * 1000.0 / cv2.getTickFrequency())
     cv2.putText(image, label, (0, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0))
+
+    cv2.putText(image, str(local_obj_x), (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0))
     
     cv2.imshow(window_title, image)
+    
