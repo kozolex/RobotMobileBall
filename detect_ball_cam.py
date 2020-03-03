@@ -1,13 +1,12 @@
-from gpiozero import PWMOutputDevice
-#from gpiozero import DigitalOutputDevice
+#from gpiozero import PWMOutputDevice
 import time
-import threading
+#import threading
 import cv2
 import argparse
 import numpy as np
 
-#tu się zaczynają definicje pinów do sterowania mostkami H
-
+"""
+#Define H-bridge
 PWM_DRIVE_LEFT = 21     # ENA - H-Bridge enable pin
 FORWARD_LEFT_PIN = 26   # IN1 - Forward Drive
 REVERSE_LEFT_PIN = 19   # IN2 - Reverse Drive
@@ -15,18 +14,17 @@ REVERSE_LEFT_PIN = 19   # IN2 - Reverse Drive
 PWM_DRIVE_RIGHT = 5     # ENB - H-Bridge enable pin
 FORWARD_RIGHT_PIN = 13  # IN1 - Forward Drive
 REVERSE_RIGHT_PIN = 6   # IN2 - Reverse Drive
- 
- #ustawienia pwm na odpowiednich pinach gpio
+
 # Initialise objects for H-Bridge GPIO PWM pins
 # Set initial duty cycle to 0 and frequency to 1000
-driveLeft = PWMOutputDevice(PWM_DRIVE_LEFT, True, 0, 1500)
-driveRight = PWMOutputDevice(PWM_DRIVE_RIGHT, True, 0, 1500)
- 
-# Tutaj sterowanie kierunkiem dla silnika lewego i prawego
+driveLeft = PWMOutputDevice(PWM_DRIVE_LEFT, True, 0, 1000)
+driveRight = PWMOutputDevice(PWM_DRIVE_RIGHT, True, 0, 1000)
+
 forwardLeft = PWMOutputDevice(FORWARD_LEFT_PIN)
 reverseLeft = PWMOutputDevice(REVERSE_LEFT_PIN)
 forwardRight = PWMOutputDevice(FORWARD_RIGHT_PIN)
 reverseRight = PWMOutputDevice(REVERSE_RIGHT_PIN)
+"""
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-c', '--config', 
@@ -37,27 +35,19 @@ ap.add_argument('-cl', '--classes',
                 help = 'path to text file containing class names',default='/home/pi/Desktop/PLIKI/ping-pong.names')
 args = ap.parse_args()
 
-    
-
 # Get names of output layers, output for YOLOv3 is ['yolo_16', 'yolo_23']
 def getOutputsNames(net):
     layersNames = net.getLayerNames()
     return [layersNames[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
-
+# Functions
 # Darw a rectangle surrounding the object and its class name 
 def draw_pred(img, class_id, confidence, x, y, x_plus_w, y_plus_h):
-
     label = str(classes[class_id])
-
     color = COLORS[class_id]
-
     cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)
-
     cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-    #tutaj zaczynają się definicję np skrętu w lewo,
-    #jedź prosto i takie tam różne w każdym ustawia się wyjścia pinów 1/0 dla kierunki
-    #oraz z jakim wypełnieniem ma to działać
+
 def allStop():
     forwardLeft.value = False
     reverseLeft.value = False
@@ -65,7 +55,7 @@ def allStop():
     reverseRight.value = False
     driveLeft.value = 0
     driveRight.value = 0
- 
+
 def forwardDrive(wypelnienie):
     nowe=wypelnienie/100
     forwardLeft.value = True
@@ -99,58 +89,27 @@ def forwardTurnRight(wypelnienie):
     forwardRight.value = True
     reverseRight.value = False
     driveLeft.value = nowe
-    driveRight.value = nowe
+    driveRight.value = nowe 
 
-def centruj(zmienna):     #funkcja centrująca obiekt na ekranie kamery
-    
-    if zmienna < 145 and zmienna != 0:
-        
-        procent= zmienna/160
-        procent=1-procent
-        czas_czekania=0.5*procent
-         
-        forwardTurnRight(0.02)
-        t5.start()
-        
-    if zmienna > 175 and zmienna != 0:
-        
-        zmienna=zmienna-160
-        procent=zmienna/160
-        czas_czekania=0.5*procent
-         
-        forwardTurnLeft(0.02)
-        t4.start()
-        
-    if zmienna > 130 and zmienna <190 or zmienna == 0:
+def p_controller(local_obj_x):     #funkcja p_controllerąca obiekt na ekranie kamery
+    if local_obj_x != 0: 
+        pwm_signal = ((local_obj_x -160)/160) / pwm_par
+        if pwm_signal > 0 :
+            forwardTurnLeft(pwm_signal)
+        else :
+            forwardTurnRight(-pwm_signal)
+        return pwm_signal
+    else: 
         allStop()
-        #zaczęte eksperymenty typu jak piłka będzie po środku ekranu tojedź prosto
-        #tylko zaczęte nic więcej nawet nie testowałem
-def zbieraj(zmienna):
-    centruj(zmienna) # po prostu wycentruj na ekranie piłkę i jedź prosto
-    forwardDrive(0.03)                       # taki sam schemat jazdy jak przy centrowaniu obiektu
-    t1.start()
-    
-def szukaj(zmienna):
-                               # funkcja szukania obiektu na ekranie
-        forwardTurnRight(0.02)   #i tutaj się obraca sobie robot powoli i szuka piłeczki
-        t2.run()
-        t3.run()                         #obrotu robota w prawo
-    #if zmienna != 0:         #a jeżeli coś się wydarzy czyli jakaś detekcja obiektu to
-      #  zbieraj(zmienna) 
-    # tu jest próba wykorzystania timerów do oganięcia ile poszczególna funkcja ma trwać
-    #typu skręcaj w lewo przez 5s również  nie dokończone bo nie ogarnąłem
-    
-    
-czas_czekania = 0   
-t1 = threading.Timer(1.0, allStop)        
-t2 = threading.Timer(3.0 , forwardTurnLeft, [2])       #3 sekundy działania z takim wypełnieniem to 90st
-t3 = threading.Timer(4.5 , allStop)
-t4 = threading.Timer(czas_czekania, allStop)        
-t5 = threading.Timer(czas_czekania, allStop)         
-      #a tu się zaczyna cała detekcja obiektu aż praktycznie do końca kodu  
+        return 0
+
+def catch_ball(local_obj_x):
+    p_controller(local_obj_x) # po prostu wyp_controller na ekranie piłkę i jedź prosto
+    forwardDrive(0.03)        # taki sam schemat jazdy jak przy centrowaniu obiektu
+  
+# Object Detection process
 window_title= "Detector"   
 cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
-
 
 # Load names classes
 classes = None
@@ -171,7 +130,7 @@ cap.set(4,240)
 cap.set(5, 90)
 cap.set(12,50)
 
-zmienna=0
+local_obj_x=0
 
 while cv2.waitKey(1) < 0:
     
@@ -192,10 +151,9 @@ while cv2.waitKey(1) < 0:
     nms_threshold = 0.4
     
     for out in outs:
-        zmienna=0 # tą zmienną wykorzystuję do wypluwania gdzie czy jest obiekt na ekranie czy go nie ma
+        local_obj_x = 0 # localization object of interest on x
         #print(out.shape)
         for detection in out:
-            
         #each detection  has the form like this [center_x center_y width height obj_score class_1_score class_2_score ..]
             scores = detection[5:]#classes scores starts from index 5
             class_id = np.argmax(scores)
@@ -204,7 +162,7 @@ while cv2.waitKey(1) < 0:
             if confidence > 0.5:            
                 center_x = int(detection[0] * Width)
                 center_y = int(detection[1] * Height)
-                zmienna=center_x
+                local_obj_x=center_x
                 
                 w = int(detection[2] * Width)
                 h = int(detection[3] * Height)
@@ -216,11 +174,7 @@ while cv2.waitKey(1) < 0:
            
     indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
     
-    #dodatkowo zmiennej nadaję też wartość w pikselach gdzie piłka na obrazie jest
-    
-    
-    #tu jest część do samego rysowania pudełek na obiektach
-    
+# Drawing b_boxes on image
     for i in indices:
         i = i[0]
         box = boxes[i]
@@ -231,7 +185,7 @@ while cv2.waitKey(1) < 0:
         
         draw_pred(image, class_ids[i], confidences[i], round(x), round(y), round(x+w), round(y+h))
    
-    # A tu wyluwa opcje w okienku takie input lag
+    # Drawing Inference time on image
     t, _ = net.getPerfProfile()
     label = 'Inference time: %.2f ms' % (t * 1000.0 / cv2.getTickFrequency())
     cv2.putText(image, label, (0, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0))
