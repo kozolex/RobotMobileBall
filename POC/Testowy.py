@@ -13,14 +13,14 @@ FORWARD_LEFT_PIN = 26   # IN1 - Forward Drive
 REVERSE_LEFT_PIN = 19   # IN2 - Reverse Drive
 # Motor B, Right Side GPIO CONSTANTS
 PWM_DRIVE_RIGHT = 5     # ENB - H-Bridge enable pin
-FORWARD_RIGHT_PIN = 13  # IN1 - Forward Drive
-REVERSE_RIGHT_PIN = 6   # IN2 - Reverse Drive
+FORWARD_RIGHT_PIN = 6  # IN1 - Forward Drive
+REVERSE_RIGHT_PIN = 13   # IN2 - Reverse Drive
  
  #ustawienia pwm na odpowiednich pinach gpio
 # Initialise objects for H-Bridge GPIO PWM pins
 # Set initial duty cycle to 0 and frequency to 1000
-driveLeft = PWMOutputDevice(PWM_DRIVE_LEFT, True, 0, 1500)
-driveRight = PWMOutputDevice(PWM_DRIVE_RIGHT, True, 0, 1500)
+driveLeft = PWMOutputDevice(PWM_DRIVE_LEFT, True, 0, 1000)
+driveRight = PWMOutputDevice(PWM_DRIVE_RIGHT, True, 0, 1000)
  
 # Tutaj sterowanie kierunkiem dla silnika lewego i prawego
 forwardLeft = PWMOutputDevice(FORWARD_LEFT_PIN)
@@ -30,11 +30,11 @@ reverseRight = PWMOutputDevice(REVERSE_RIGHT_PIN)
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-c', '--config', 
-                help = 'path to yolo config file', default='/home/pi/Desktop/PLIKI/tinyv3.cfg')
+                help = 'path to yolo config file', default='./net/tinyv3.cfg')
 ap.add_argument('-w', '--weights', 
-                help = 'path to yolo pre-trained weights', default='/home/pi/Desktop/PLIKI/BEST.weights')
+                help = 'path to yolo pre-trained weights', default='./net/BEST.weights')
 ap.add_argument('-cl', '--classes', 
-                help = 'path to text file containing class names',default='/home/pi/Desktop/PLIKI/ping-pong.names')
+                help = 'path to text file containing class names',default='./net/ping-pong.names')
 args = ap.parse_args()
 
     
@@ -80,20 +80,19 @@ def reverseDrive():
     driveRight.value = 0.07
     
 def forwardTurnLeft(wypelnienie):
-    nowe=wypelnienie/100
     forwardLeft.value = True
     reverseLeft.value = False
     forwardRight.value = False
     reverseRight.value = True
-    driveLeft.value = nowe
-    driveRight.value = nowe
+    driveLeft.value = wypelnienie
+    driveRight.value = wypelnienie
  
 def forwardTurnRight(wypelnienie):
-    nowe=wypelnienie/100
     forwardLeft.value = False
     reverseLeft.value = True
     forwardRight.value = True
     reverseRight.value = False
+<<<<<<< HEAD:POC/Testowy.py
     driveLeft.value = nowe
     driveRight.value = nowe 
 
@@ -121,10 +120,26 @@ def centruj(local_obj_x):     #funkcja centrująca obiekt na ekranie kamery
         allStop()
         #zaczęte eksperymenty typu jak piłka będzie po środku ekranu tojedź prosto
         #tylko zaczęte nic więcej nawet nie testowałem
+=======
+    driveLeft.value = wypelnienie
+    driveRight.value = wypelnienie
+
+def centruj(local_obj_x, pwm_par = 100):     #funkcja centrująca obiekt na ekranie kamery
+    if local_obj_x != 0: 
+        pwm_signal = ((local_obj_x -160)/160) / pwm_par
+        if pwm_signal > 0 :
+            forwardTurnLeft(pwm_signal)
+        else :
+            forwardTurnRight(-pwm_signal)
+        return pwm_signal
+    else: allStop()
+
+>>>>>>> 6cdc1c354310b6678d554f9ad0a8a31e092c5f12:Testowy.py
 def zbieraj(local_obj_x):
     centruj(local_obj_x) # po prostu wycentruj na ekranie piłkę i jedź prosto
     forwardDrive(0.03)                       # taki sam schemat jazdy jak przy centrowaniu obiektu
     t1.start()
+<<<<<<< HEAD:POC/Testowy.py
 
  
 def szukaj(local_obj_x):
@@ -135,9 +150,19 @@ t3 = threading.Timer(4.5 , allStop)
 t4 = threading.Timer(czas_czekania, allStop)        
 t5 = threading.Timer(czas_czekania, allStop)         
       #a tu się zaczyna cała detekcja obiektu aż praktycznie do końca kodu  
+=======
+    
+def szukaj(local_obj_x):
+                               # funkcja szukania obiektu na ekranie
+        forwardTurnRight(0.02)   #i tutaj się obraca sobie robot powoli i szuka piłeczki                       #obrotu robota w prawo
+    #if local_obj_x != 0:         #a jeżeli coś się wydarzy czyli jakaś detekcja obiektu to
+      #  zbieraj(local_obj_x) 
+    # tu jest próba wykorzystania timerów do oganięcia ile poszczególna funkcja ma trwać
+    #typu skręcaj w lewo przez 5s również  nie dokończone bo nie ogarnąłem
+
+>>>>>>> 6cdc1c354310b6678d554f9ad0a8a31e092c5f12:Testowy.py
 window_title= "Detector"   
 cv2.namedWindow(window_title, cv2.WINDOW_NORMAL)
-
 
 # Load names classes
 classes = None
@@ -204,6 +229,11 @@ while cv2.waitKey(1) < 0:
     indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
     
     #dodatkowo zmiennej nadaję też wartość w pikselach gdzie piłka na obrazie jest
+<<<<<<< HEAD:POC/Testowy.py
+=======
+    
+    pwm_result =centruj(local_obj_x, 25)
+>>>>>>> 6cdc1c354310b6678d554f9ad0a8a31e092c5f12:Testowy.py
     #tu jest część do samego rysowania pudełek na obiektach
     
     for i in indices:
@@ -220,5 +250,8 @@ while cv2.waitKey(1) < 0:
     t, _ = net.getPerfProfile()
     label = 'Inference time: %.2f ms' % (t * 1000.0 / cv2.getTickFrequency())
     cv2.putText(image, label, (0, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0))
+
+    cv2.putText(image, str(pwm_result), (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0))
     
     cv2.imshow(window_title, image)
+    
